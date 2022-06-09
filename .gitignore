@@ -10,3 +10,6 @@ nbproject
 package-lock.json
 yarn.lock
 .idea
+build/
+src/3rd-party/svg-to-pdfkit/LICENSE
+src/3rd-party/svg-to-pdfkit/source.js
