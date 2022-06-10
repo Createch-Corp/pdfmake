@@ -141,6 +141,7 @@ ElementWriter.prototype.addQr = function (qr, index) {
 		var vector = qr._canvas[i];
 		vector.x += qr.x;
 		vector.y += qr.y;
+		vector.__nodeRef = qr.__nodeRef ?? qr;
 		this.addVector(vector, true, true, index);
 	}
 

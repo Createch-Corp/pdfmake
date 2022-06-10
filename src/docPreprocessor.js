@@ -18,7 +18,7 @@ DocPreprocessor.prototype.preprocessDocument = function (docStructure) {
 	return this.preprocessNode(docStructure);
 };
 
-DocPreprocessor.prototype.preprocessNode = function (node) {
+DocPreprocessor.prototype.checkNode = function (node) {
 	// expand shortcuts and casting values
 	if (isArray(node)) {
 		node = { stack: node };
@@ -33,6 +33,11 @@ DocPreprocessor.prototype.preprocessNode = function (node) {
 	} else if ('text' in node && (node.text === undefined || node.text === null)) {
 		node.text = '';
 	}
+	return node;
+};
+
+DocPreprocessor.prototype.preprocessNode = function (node) {
+	node = this.checkNode(node);
 
 	if (node.columns) {
 		return this.preprocessColumns(node);
@@ -67,6 +72,8 @@ DocPreprocessor.prototype.preprocessColumns = function (node) {
 	var columns = node.columns;
 
 	for (var i = 0, l = columns.length; i < l; i++) {
+		columns[i] = this.checkNode(columns[i]);
+		columns[i].__nodeRef = node.__nodeRef ?? node;
 		columns[i] = this.preprocessNode(columns[i]);
 	}
 
@@ -77,6 +84,8 @@ DocPreprocessor.prototype.preprocessVerticalContainer = function (node) {
 	var items = node.stack;
 
 	for (var i = 0, l = items.length; i < l; i++) {
+		items[i] = this.checkNode(items[i]);
+		items[i].__nodeRef = node.__nodeRef ?? node;
 		items[i] = this.preprocessNode(items[i]);
 	}
 
@@ -87,6 +96,8 @@ DocPreprocessor.prototype.preprocessList = function (node) {
 	var items = node.ul || node.ol;
 
 	for (var i = 0, l = items.length; i < l; i++) {
+		items[i] = this.checkNode(items[i]);
+		items[i].__nodeRef = node.__nodeRef ?? node;
 		items[i] = this.preprocessNode(items[i]);
 	}
 

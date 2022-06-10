@@ -125,7 +125,7 @@ LayoutBuilder.prototype.layoutDocument = function (docStructure, fontProvider, s
 
 	this.docPreprocessor = new DocPreprocessor();
 	this.docMeasure = new DocMeasure(fontProvider, styleDictionary, defaultStyle, this.imageMeasure, this.svgMeasure, this.tableLayouts, images);
-
+	this.__nodesHierarchy = [];
 
 	function resetXYs(result) {
 		result.linearNodeList.forEach(function (node) {
@@ -471,6 +471,9 @@ LayoutBuilder.prototype.processNode = function (node) {
 
 // vertical container
 LayoutBuilder.prototype.processVerticalContainer = function (node) {
+	this.__nodesHierarchy.push(node);
+	node.__contentHeight = 0;
+
 	var self = this;
 	node.stack.forEach(function (item) {
 		self.processNode(item);
@@ -478,6 +481,8 @@ LayoutBuilder.prototype.processVerticalContainer = function (node) {
 
 		//TODO: paragraph gap
 	});
+	const lastNode = this.__nodesHierarchy.pop();
+	this.__nodesHierarchy.length > 0 && (this.__nodesHierarchy[this.__nodesHierarchy.length - 1].__contentHeight += lastNode.__contentHeight);
 };
 
 // columns
@@ -489,6 +494,8 @@ LayoutBuilder.prototype.processColumns = function (columnNode) {
 	if (gaps) {
 		availableWidth -= (gaps.length - 1) * columnNode._gap;
 	}
+	columnNode.__contentHeight = 0;
+	this.__nodesHierarchy.push(columnNode);
 
 	ColumnCalculator.buildColumnWidths(columns, availableWidth);
 	var result = this.processRow(columns, columns, gaps);
@@ -509,6 +516,9 @@ LayoutBuilder.prototype.processColumns = function (columnNode) {
 
 		return gaps;
 	}
+	const lastNode = this.__nodesHierarchy.pop();
+	lastNode.__contentHeight = Math.max(...columns.map(c => c.__contentHeight));
+	this.__nodesHierarchy.length > 0 && (this.__nodesHierarchy[this.__nodesHierarchy.length - 1].__contentHeight += lastNode.__contentHeight);
 };
 
 LayoutBuilder.prototype.processRow = function (columns, widths, gaps, tableBody, tableRow, height) {
@@ -587,6 +597,9 @@ LayoutBuilder.prototype.processRow = function (columns, widths, gaps, tableBody,
 
 // lists
 LayoutBuilder.prototype.processList = function (orderedList, node) {
+	this.__nodesHierarchy.push(node);
+	node.__contentHeight = 0;
+
 	var self = this,
 		items = orderedList ? node.ol : node.ul,
 		gapSize = node._gapSize;
@@ -596,6 +609,7 @@ LayoutBuilder.prototype.processList = function (orderedList, node) {
 	var nextMarker;
 	this.tracker.auto('lineAdded', addMarkerToFirstLeaf, function () {
 		items.forEach(function (item) {
+			item.__nodeRef = node.__nodeRef ?? node;
 			nextMarker = item.listMarker;
 			self.processNode(item);
 			addAll(node.positions, item.positions);
@@ -603,6 +617,9 @@ LayoutBuilder.prototype.processList = function (orderedList, node) {
 	});
 
 	this.writer.context().addMargin(-gapSize.width);
+
+	const lastNode = this.__nodesHierarchy.pop();
+	this.__nodesHierarchy.length > 0 && (this.__nodesHierarchy[this.__nodesHierarchy.length - 1].__contentHeight += lastNode.__contentHeight);
 
 	function addMarkerToFirstLeaf(line) {
 		// I'm not very happy with the way list processing is implemented
@@ -613,11 +630,14 @@ LayoutBuilder.prototype.processList = function (orderedList, node) {
 
 			if (marker.canvas) {
 				var vector = marker.canvas[0];
+				vector.__nodeRef = line.__nodeRef ?? line;
+				vector._height = marker._maxHeight;
 
 				offsetVector(vector, -marker._minWidth, 0);
 				self.writer.addVector(vector);
 			} else if (marker._inlines) {
 				var markerLine = new Line(self.pageSize.width);
+				markerLine.__nodeRef = line.__nodeRef ?? line;
 				markerLine.addInline(marker._inlines[0]);
 				markerLine.x = -marker._minWidth;
 				markerLine.y = line.getAscenderHeight() - markerLine.getAscenderHeight();
@@ -661,7 +681,9 @@ LayoutBuilder.prototype.processTable = function (tableNode) {
 
 // leafs (texts)
 LayoutBuilder.prototype.processLeaf = function (node) {
+	node = this.docPreprocessor.checkNode(node);
 	var line = this.buildNextLine(node);
+	line && (line.__nodeRef = node.__nodeRef ?? node);
 	if (line && (node.tocItem || node.id)) {
 		line._node = node;
 	}
@@ -700,9 +722,12 @@ LayoutBuilder.prototype.processLeaf = function (node) {
 		node.positions.push(positions);
 		line = this.buildNextLine(node);
 		if (line) {
+			line.__nodeRef = node.__nodeRef ?? node;
 			currentHeight += line.getHeight();
 		}
 	}
+	node.__contentHeight = currentHeight;
+	this.__nodesHierarchy.length > 0 && (this.__nodesHierarchy[this.__nodesHierarchy.length - 1].__contentHeight += currentHeight);
 };
 
 LayoutBuilder.prototype.processToc = function (node) {
