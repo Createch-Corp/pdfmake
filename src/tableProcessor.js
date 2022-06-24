@@ -540,16 +540,17 @@ TableProcessor.prototype.endRow = function (rowIndex, writer, pageBreaks) {
 					// But if this is the last cell or the first cell, just add left or right correction
 					// Else, add left and right corrections
 					var wCorrection = (lastIndex === 0 ? 0 : colIndex === lastIndex || colIndex === 0 ? TABLE_FILL_CORRECTION : 2 * TABLE_FILL_CORRECTION);
+					var xCorrection = (colIndex === 0 ? 0 : TABLE_FILL_CORRECTION);
 
 					var bgWidth = x2f - x1f;
 					var bgHeight = y2f - y1f;
 					if (fillColor) {
 						writer.addVector({
 							type: 'rect',
-							x: x1f - (colIndex === 0 ? 0 : TABLE_FILL_CORRECTION),
-							y: y1f - TABLE_FILL_CORRECTION,
-							w: bgWidth + wCorrection,
-							h: bgHeight + 2 * TABLE_FILL_CORRECTION,
+							x: x1f - (widthLeftBorder == 0 ? xCorrection : 0),
+							y: y1f - (hzLineOffset == 0 ? TABLE_FILL_CORRECTION : 0),
+							w: bgWidth + (widthRightBorder == 0 ? wCorrection : 0),
+							h: bgHeight + (hzLineOffset == 0 ? TABLE_FILL_CORRECTION : 0) + (this.bottomLineWidth == 0 ? TABLE_FILL_CORRECTION : 0),
 							lineWidth: 0,
 							color: fillColor,
 							fillOpacity: fillOpacity
